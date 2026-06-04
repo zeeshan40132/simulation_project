@@ -71,6 +71,7 @@ def prepare_with_features(test_size=0.2, random_state=42):
         'y_wait_train': yw_train, 'y_wait_test': yw_test,
         'y_outcome_train': yo_train, 'y_outcome_test': yo_test,
         'y_sat_train': ys_train, 'y_sat_test': ys_test,
+        'feature_names': X_train.columns.tolist(),
     }
 
 
