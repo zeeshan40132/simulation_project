@@ -1,4 +1,9 @@
 import { create } from 'zustand'
+import {
+  createSimulationRun,
+  completeSimulationRun,
+  savePatientsLog,
+} from '@/lib/db'
 
 // Default simulation config
 export const DEFAULT_CONFIG = {
@@ -28,7 +33,9 @@ export const useSimulationStore = create((set, get) => ({
   stats:    { ...EMPTY_STATS },
   recentEvents: [],          // last 50 events for the event log panel
   history:  [],              // completed simulation summaries
+  currentRunId: null,        // Supabase run id for the active session
   _worker:  null,
+  _startedAt: null,          // wall-clock start time for duration tracking
 
   // ── Config ─────────────────────────────────────────────────────────────────
   setConfig: (partial) =>
@@ -62,7 +69,12 @@ export const useSimulationStore = create((set, get) => ({
           }))
           break
 
-        case 'DONE':
+        case 'DONE': {
+          const { currentRunId, config: cfg, _startedAt } = get()
+          const durationSeconds = _startedAt
+            ? Math.round((Date.now() - _startedAt) / 1000)
+            : null
+
           set((s) => ({
             status:   'done',
             simTime:  data.simTime,
@@ -70,15 +82,28 @@ export const useSimulationStore = create((set, get) => ({
             stats:    { ...s.stats, ...data.finalStats },
             history: [
               {
-                id:        Date.now(),
-                config:    s.config,
+                id:         Date.now(),
+                config:     s.config,
                 finalStats: data.finalStats,
-                simTime:   data.simTime,
+                simTime:    data.simTime,
               },
               ...s.history,
             ].slice(0, 20),
           }))
+
+          // Persist to Supabase (non-blocking)
+          if (currentRunId) {
+            completeSimulationRun(currentRunId, data.finalStats, durationSeconds)
+              .catch((err) => console.warn('[DB] completeSimulationRun failed:', err.message))
+
+            const discharged = data.patients.filter((p) => p.state === 'discharged')
+            if (discharged.length > 0) {
+              savePatientsLog(currentRunId, discharged)
+                .catch((err) => console.warn('[DB] savePatientsLog failed:', err.message))
+            }
+          }
           break
+        }
       }
     }
 
@@ -89,8 +114,16 @@ export const useSimulationStore = create((set, get) => ({
 
     worker.postMessage({ type: 'START', config })
 
-    set({ status: 'running', _worker: worker, patients: [], recentEvents: [],
-          stats: { ...EMPTY_STATS }, simTime: 0 })
+    set({
+      status: 'running', _worker: worker, patients: [], recentEvents: [],
+      stats: { ...EMPTY_STATS }, simTime: 0, currentRunId: null,
+      _startedAt: Date.now(),
+    })
+
+    // Create run record in Supabase (non-blocking)
+    createSimulationRun(config)
+      .then((runId) => set({ currentRunId: runId }))
+      .catch((err) => console.warn('[DB] createSimulationRun failed:', err.message))
   },
 
   pauseSimulation: () => {
