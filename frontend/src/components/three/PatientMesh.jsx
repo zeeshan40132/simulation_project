@@ -1,8 +1,8 @@
 'use client'
 
 import { useRef, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
 import { ZONES, waitingSlotPosition, treatmentSlotPosition } from './ERScene'
+import { usePatientAnimation } from '@/hooks/usePatientAnimation'
 
 // ─── Triage-level colours (match StatsDashboard) ──────────────────────────────
 const TRIAGE_COLORS = {
@@ -72,19 +72,7 @@ function PatientCapsule({ patient, allPatients, numDoctors }) {
     [patient.state, patient.id, allPatients.length, numDoctors]
   )
 
-  useFrame((_, delta) => {
-    if (!meshRef.current) return
-    const speed = 4
-    meshRef.current.position.x +=
-      (target[0] - meshRef.current.position.x) * Math.min(speed * delta, 1)
-    meshRef.current.position.z +=
-      (target[2] - meshRef.current.position.z) * Math.min(speed * delta, 1)
-
-    // bob the glow ring
-    if (glowRef.current) {
-      glowRef.current.rotation.y += delta * 1.5
-    }
-  })
+  usePatientAnimation(meshRef, glowRef, target, patient.state, patient.triageLevel)
 
   const isDischarged = patient.state === 'DISCHARGED'
 
