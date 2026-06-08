@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Environment } from '@react-three/drei'
 import * as THREE from 'three'
+import CameraRig from './CameraRig'
 
 // ─── Zone definitions ─────────────────────────────────────────────────────────
 // Each zone has a world-space center used by patient placement logic
@@ -163,15 +164,41 @@ function SceneContent({ numDoctors = 5 }) {
   return (
     <>
       {/* Lighting */}
-      <ambientLight intensity={0.4} />
+      <ambientLight intensity={0.3} />
+      <hemisphereLight args={['#1e3a5f', '#0a1628', 0.5]} />
       <directionalLight
-        position={[10, 20, 10]}
-        intensity={1.2}
+        position={[8, 22, 10]}
+        intensity={1.0}
         castShadow
-        shadow-mapSize={[2048, 2048]}
+        shadow-mapSize={[4096, 4096]}
+        shadow-camera-near={0.5}
+        shadow-camera-far={60}
+        shadow-camera-left={-22}
+        shadow-camera-right={22}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
       />
-      <pointLight position={[-10, 8, 0]} intensity={0.6} color="#3b82f6" />
-      <pointLight position={[10, 8, 0]}  intensity={0.5} color="#0ea5e9" />
+      {/* Zone accent lights */}
+      <pointLight position={[-7, 6, 0]}  intensity={0.8} color="#3b82f6" />
+      <spotLight
+        position={[-1, 9, 0]}
+        angle={0.45}
+        penumbra={0.6}
+        intensity={1.2}
+        color="#a78bfa"
+        castShadow={false}
+        target-position={[-1, 0, 0]}
+      />
+      <spotLight
+        position={[6.5, 9, 0]}
+        angle={0.55}
+        penumbra={0.5}
+        intensity={1.0}
+        color="#22c55e"
+        castShadow={false}
+        target-position={[6.5, 0, 0]}
+      />
+      <pointLight position={[14, 5, 0]} intensity={0.4} color="#0ea5e9" />
 
       {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
@@ -225,21 +252,28 @@ function SceneContent({ numDoctors = 5 }) {
 }
 
 // ─── Exported canvas wrapper ──────────────────────────────────────────────────
-export default function ERScene({ numDoctors = 5, children }) {
+export default function ERScene({ numDoctors = 5, cameraPreset = 'overview', children }) {
+  const controlsRef = useRef()
+
   return (
     <Canvas
       shadows
       camera={{ position: [0, 18, 14], fov: 50 }}
       style={{ background: '#060d1a' }}
+      gl={{ antialias: true, toneMapping: 4 /* ACESFilmic */ }}
     >
       <SceneContent numDoctors={numDoctors} />
       {children}
+      <CameraRig preset={cameraPreset} controlsRef={controlsRef} />
       <OrbitControls
+        ref={controlsRef}
         target={[0, 0, 0]}
         maxPolarAngle={Math.PI / 2.2}
         minDistance={8}
         maxDistance={40}
         enablePan={true}
+        enableDamping
+        dampingFactor={0.07}
       />
       <Environment preset="city" />
     </Canvas>
