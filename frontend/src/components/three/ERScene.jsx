@@ -5,6 +5,7 @@ import { Canvas } from '@react-three/fiber'
 import { OrbitControls, Grid, Environment } from '@react-three/drei'
 import * as THREE from 'three'
 import CameraRig from './CameraRig'
+import PostFX from './PostFX'
 
 // ─── Zone definitions ─────────────────────────────────────────────────────────
 // Each zone has a world-space center used by patient placement logic
@@ -265,6 +266,7 @@ export default function ERScene({ numDoctors = 5, cameraPreset = 'overview', chi
       <SceneContent numDoctors={numDoctors} />
       {children}
       <CameraRig preset={cameraPreset} controlsRef={controlsRef} />
+      <PostFX />
       <OrbitControls
         ref={controlsRef}
         target={[0, 0, 0]}
