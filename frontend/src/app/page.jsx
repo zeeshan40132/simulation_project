@@ -7,6 +7,7 @@ import SimulationControls from '@/components/SimulationControls'
 import StatsDashboard from '@/components/StatsDashboard'
 import EventLog from '@/components/EventLog'
 import { CAMERA_PRESETS } from '@/components/three/CameraRig'
+import ResultsModal from '@/components/ResultsModal'
 
 // R3F must be loaded client-side only — no SSR
 const ERScene    = dynamic(() => import('@/components/three/ERScene'),    { ssr: false })
@@ -97,6 +98,9 @@ export default function Home() {
               </button>
             ))}
           </div>
+
+          {/* Results modal */}
+          <ResultsModal />
 
           {/* Idle overlay hint */}
           {status === 'idle' && (
