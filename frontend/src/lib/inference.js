@@ -1,5 +1,8 @@
 import * as ort from 'onnxruntime-web'
 
+// WASM files are served from CDN matching the pinned package version
+ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/'
+
 // Models are served from Supabase Storage public bucket
 const STORAGE_BASE = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/models`
 
