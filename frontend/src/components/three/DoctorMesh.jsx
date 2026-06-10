@@ -5,9 +5,9 @@ import gsap from 'gsap'
 import { treatmentSlotPosition, ZONES } from './ERScene'
 
 // ─── Doctor colours ───────────────────────────────────────────────────────────
-const COAT_COLOR    = '#e2e8f0'   // white coat
-const SCRUB_COLOR   = '#1d4ed8'   // blue scrubs
-const BUSY_EMISSIVE = '#15803d'   // green glow when treating
+const COAT_COLOR    = '#f1f5f9'   // white coat
+const SCRUB_COLOR   = '#2563eb'   // blue scrubs
+const BUSY_EMISSIVE = '#22c55e'   // bright green glow when treating
 const IDLE_EMISSIVE = '#1e3a5f'   // dim blue when idle
 
 // Idle doctors line up near the central nurses' station
@@ -95,13 +95,13 @@ function DoctorFigure({ target, isBusy }) {
       {/* busy indicator — glowing ring above head */}
       {isBusy && (
         <mesh position={[0, 1.0, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[0.18, 0.03, 6, 20]} />
+          <torusGeometry args={[0.18, 0.04, 6, 20]} />
           <meshStandardMaterial
-            color="#22c55e"
-            emissive="#22c55e"
-            emissiveIntensity={1.5}
+            color="#4ade80"
+            emissive="#4ade80"
+            emissiveIntensity={2.5}
             transparent
-            opacity={0.9}
+            opacity={0.95}
           />
         </mesh>
       )}
@@ -114,8 +114,8 @@ function buildDoctorStates(patients, numDoctors) {
   const busyMap = {}  // doctorId → true
 
   patients.forEach((p) => {
-    if (p.state === 'IN_TREATMENT' && p.doctorId !== undefined) {
-      busyMap[p.doctorId] = true
+    if (p.state === 'in_treatment' && p.assignedDoctor !== undefined) {
+      busyMap[p.assignedDoctor] = true
     }
   })
 

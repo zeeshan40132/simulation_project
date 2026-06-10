@@ -31,7 +31,8 @@ export const useSimulationStore = create((set, get) => ({
   simTime:  0,               // current simulation clock (minutes)
   patients: [],              // array of patient objects (latest snapshot)
   stats:    { ...EMPTY_STATS },
-  recentEvents: [],          // last 50 events for the event log panel
+  recentEvents: [],          // last 50 events for the sidebar event log
+  allEvents:    [],          // full event history (up to 500) for analytics page
   history:  [],              // completed simulation summaries
   currentRunId: null,        // Supabase run id for the active session
   _worker:  null,
@@ -62,10 +63,8 @@ export const useSimulationStore = create((set, get) => ({
             simTime:  data.simTime,
             patients: data.patients,
             stats:    data.stats,
-            recentEvents: [
-              ...data.events,
-              ...s.recentEvents,
-            ].slice(0, 50),
+            recentEvents: [...data.events, ...s.recentEvents].slice(0, 50),
+            allEvents:    [...data.events, ...s.allEvents].slice(0, 500),
           }))
           break
 
@@ -115,7 +114,7 @@ export const useSimulationStore = create((set, get) => ({
     worker.postMessage({ type: 'START', config })
 
     set({
-      status: 'running', _worker: worker, patients: [], recentEvents: [],
+      status: 'running', _worker: worker, patients: [], recentEvents: [], allEvents: [],
       stats: { ...EMPTY_STATS }, simTime: 0, currentRunId: null,
       _startedAt: Date.now(),
     })

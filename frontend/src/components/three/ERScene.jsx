@@ -39,17 +39,17 @@ function ZoneMarker({ label, position, width = 6, depth = 10, color }) {
         <planeGeometry args={[width, depth]} />
         <meshStandardMaterial
           color={color}
+          emissive={color}
+          emissiveIntensity={0.12}
           transparent
-          opacity={0.08}
+          opacity={0.22}
           side={THREE.DoubleSide}
         />
       </mesh>
-      {/* thin border */}
+      {/* border */}
       <lineSegments>
-        <edgesGeometry
-          args={[new THREE.PlaneGeometry(width, depth)]}
-        />
-        <lineBasicMaterial color={color} transparent opacity={0.25} />
+        <edgesGeometry args={[new THREE.PlaneGeometry(width, depth)]} />
+        <lineBasicMaterial color={color} transparent opacity={0.6} />
       </lineSegments>
     </group>
   )
@@ -144,12 +144,12 @@ function Reception() {
       </mesh>
       {/* cross sign */}
       <mesh position={[0.5, 1.6, 0]} castShadow>
-        <boxGeometry args={[0.08, 0.5, 0.08]} />
-        <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.8} />
+        <boxGeometry args={[0.1, 0.55, 0.1]} />
+        <meshStandardMaterial color="#ff2020" emissive="#ff2020" emissiveIntensity={2.5} />
       </mesh>
       <mesh position={[0.5, 1.6, 0]} castShadow>
-        <boxGeometry args={[0.5, 0.08, 0.08]} />
-        <meshStandardMaterial color="#ef4444" emissive="#ef4444" emissiveIntensity={0.8} />
+        <boxGeometry args={[0.55, 0.1, 0.1]} />
+        <meshStandardMaterial color="#ff2020" emissive="#ff2020" emissiveIntensity={2.5} />
       </mesh>
     </group>
   )
@@ -165,11 +165,11 @@ function SceneContent({ numDoctors = 5 }) {
   return (
     <>
       {/* Lighting */}
-      <ambientLight intensity={0.3} />
-      <hemisphereLight args={['#1e3a5f', '#0a1628', 0.5]} />
+      <ambientLight intensity={0.5} />
+      <hemisphereLight args={['#2563eb', '#0a1628', 0.6]} />
       <directionalLight
         position={[8, 22, 10]}
-        intensity={1.0}
+        intensity={1.4}
         castShadow
         shadow-mapSize={[4096, 4096]}
         shadow-camera-near={0.5}
@@ -179,14 +179,14 @@ function SceneContent({ numDoctors = 5 }) {
         shadow-camera-top={14}
         shadow-camera-bottom={-14}
       />
-      {/* Zone accent lights */}
-      <pointLight position={[-7, 6, 0]}  intensity={0.8} color="#3b82f6" />
+      {/* Zone accent lights — saturated to color each area distinctly */}
+      <pointLight position={[-7, 6, 0]}  intensity={1.4} color="#3b82f6" />
       <spotLight
         position={[-1, 9, 0]}
         angle={0.45}
         penumbra={0.6}
-        intensity={1.2}
-        color="#a78bfa"
+        intensity={2.0}
+        color="#c084fc"
         castShadow={false}
         target-position={[-1, 0, 0]}
       />
@@ -194,12 +194,12 @@ function SceneContent({ numDoctors = 5 }) {
         position={[6.5, 9, 0]}
         angle={0.55}
         penumbra={0.5}
-        intensity={1.0}
-        color="#22c55e"
+        intensity={1.8}
+        color="#4ade80"
         castShadow={false}
         target-position={[6.5, 0, 0]}
       />
-      <pointLight position={[14, 5, 0]} intensity={0.4} color="#0ea5e9" />
+      <pointLight position={[14, 5, 0]} intensity={0.6} color="#38bdf8" />
 
       {/* Floor */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow position={[0, -0.01, 0]}>
@@ -224,9 +224,9 @@ function SceneContent({ numDoctors = 5 }) {
       />
 
       {/* Zone markers */}
-      <ZoneMarker label="Waiting"   position={[-7,  0.01, 0]} width={8}  depth={12} color="#3b82f6" />
-      <ZoneMarker label="Triage"    position={[-1,  0.01, 0]} width={4}  depth={8}  color="#a78bfa" />
-      <ZoneMarker label="Treatment" position={[6.5, 0.01, 0]} width={9}  depth={14} color="#22c55e" />
+      <ZoneMarker label="Waiting"   position={[-7,  0.01, 0]} width={8}  depth={12} color="#60a5fa" />
+      <ZoneMarker label="Triage"    position={[-1,  0.01, 0]} width={4}  depth={8}  color="#c084fc" />
+      <ZoneMarker label="Treatment" position={[6.5, 0.01, 0]} width={9}  depth={14} color="#4ade80" />
 
       {/* Furniture */}
       <Reception />

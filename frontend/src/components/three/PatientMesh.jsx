@@ -13,45 +13,43 @@ const TRIAGE_COLORS = {
   5: '#3b82f6',
 }
 
-const STATE_EMISSIVE = {
-  WAITING_TRIAGE:  '#1e40af',
-  IN_TRIAGE:       '#7c3aed',
-  WAITING_DOCTOR:  '#1e40af',
-  IN_TREATMENT:    '#15803d',
-  DISCHARGED:      '#374151',
+// Emissive multiplier per state — triage color itself is always the emissive hue
+const STATE_EMISSIVE_INTENSITY = {
+  waiting_triage:  0.55,
+  in_triage:       0.9,
+  waiting_doctor:  0.55,
+  in_treatment:    0.9,
+  discharged:      0.0,
 }
 
 // ─── Derive a deterministic world position from patient state ─────────────────
 function targetPosition(patient, allPatients, numDoctors) {
   const { state, triageLevel, id } = patient
 
-  if (state === 'WAITING_TRIAGE' || state === 'WAITING_DOCTOR') {
-    // rank among currently waiting patients to assign a seat index
+  if (state === 'waiting_triage' || state === 'waiting_doctor') {
     const waiters = allPatients.filter(
-      (p) => p.state === 'WAITING_TRIAGE' || p.state === 'WAITING_DOCTOR'
+      (p) => p.state === 'waiting_triage' || p.state === 'waiting_doctor'
     )
     const idx = waiters.findIndex((p) => p.id === id)
     const slot = waitingSlotPosition(Math.max(idx, 0))
     return [slot.x, 0.7, slot.z]
   }
 
-  if (state === 'IN_TRIAGE') {
-    const triagers = allPatients.filter((p) => p.state === 'IN_TRIAGE')
+  if (state === 'in_triage') {
+    const triagers = allPatients.filter((p) => p.state === 'in_triage')
     const idx = triagers.findIndex((p) => p.id === id)
     const side = idx % 2 === 0 ? -2 : 2
     return [ZONES.triage.x + 1.5, 0.7, side]
   }
 
-  if (state === 'IN_TREATMENT') {
-    // use doctorId if available, else spread by patient id
+  if (state === 'in_treatment') {
     const doctorId =
-      patient.doctorId !== undefined ? patient.doctorId : id % numDoctors
+      patient.assignedDoctor !== undefined ? patient.assignedDoctor : id % numDoctors
     const slot = treatmentSlotPosition(doctorId, numDoctors)
     return [slot.x, 0.7, slot.z]
   }
 
-  if (state === 'DISCHARGED') {
-    // drift toward exit
+  if (state === 'discharged') {
     return [ZONES.exit.x, 0.7, (id % 5) * 1.2 - 3]
   }
 
@@ -65,7 +63,7 @@ function PatientCapsule({ patient, allPatients, numDoctors }) {
   const glowRef  = useRef()
 
   const color   = TRIAGE_COLORS[patient.triageLevel] || '#64748b'
-  const emissive = STATE_EMISSIVE[patient.state] || '#111827'
+  const emissiveIntensity = STATE_EMISSIVE_INTENSITY[patient.state] ?? 0.5
   const target  = useMemo(
     () => targetPosition(patient, allPatients, numDoctors),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -74,23 +72,22 @@ function PatientCapsule({ patient, allPatients, numDoctors }) {
 
   usePatientAnimation(meshRef, glowRef, target, patient.state, patient.triageLevel)
 
-  const isDischarged = patient.state === 'DISCHARGED'
+  const isDischarged = patient.state === 'discharged'
 
   return (
     <group
       ref={meshRef}
-      position={target}
       visible={!isDischarged}
     >
-      {/* body capsule */}
+      {/* body capsule — emissive uses same triage hue so red stays red */}
       <mesh castShadow>
         <capsuleGeometry args={[0.2, 0.5, 4, 8]} />
         <meshStandardMaterial
           color={color}
-          emissive={emissive}
-          emissiveIntensity={0.5}
-          roughness={0.4}
-          metalness={0.1}
+          emissive={color}
+          emissiveIntensity={emissiveIntensity}
+          roughness={0.35}
+          metalness={0.05}
         />
       </mesh>
 
@@ -99,9 +96,9 @@ function PatientCapsule({ patient, allPatients, numDoctors }) {
         <sphereGeometry args={[0.18, 10, 10]} />
         <meshStandardMaterial
           color={color}
-          emissive={emissive}
-          emissiveIntensity={0.4}
-          roughness={0.4}
+          emissive={color}
+          emissiveIntensity={emissiveIntensity * 0.8}
+          roughness={0.35}
         />
       </mesh>
 
@@ -111,9 +108,9 @@ function PatientCapsule({ patient, allPatients, numDoctors }) {
         <meshStandardMaterial
           color={color}
           emissive={color}
-          emissiveIntensity={1.2}
+          emissiveIntensity={2.0}
           transparent
-          opacity={0.85}
+          opacity={0.9}
         />
       </mesh>
     </group>
@@ -123,7 +120,7 @@ function PatientCapsule({ patient, allPatients, numDoctors }) {
 // ─── Render all active (non-discharged) patients ──────────────────────────────
 export default function PatientMesh({ patients = [], numDoctors = 5 }) {
   const active = useMemo(
-    () => patients.filter((p) => p.state !== 'DISCHARGED').slice(0, 60),
+    () => patients.filter((p) => p.state !== 'discharged').slice(0, 60),
     [patients]
   )
 
