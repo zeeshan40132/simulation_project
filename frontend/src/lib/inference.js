@@ -51,8 +51,9 @@ export function buildFeatureVector({
   dayOfWeek       = 1,    // 1=Mon … 7=Sun
   hourOfDay       = 12,   // 0-23 real clock hour
   numNurses       = 8,
-  facilityBeds    = 100,  // bed count; training median ~87
-  specialistAvail = 3,    // 0-10; training mean ~3.9
+  arrivalRate     = 4,    // patients/hr — used to compute nurse load relative to demand
+  facilityBeds    = 80,   // bed count; default below training median (94) → largeFacility=0
+  specialistAvail = 5,    // 0-10; mapped from numDoctors
   season          = 2,    // 1=Winter 2=Spring 3=Summer 4=Fall
   region          = 1,    // 1=Urban 0=Rural
 }) {
@@ -69,9 +70,10 @@ export function buildFeatureVector({
 
   const isWeekend = dayOfWeek >= 6 ? 1 : 0
 
-  // Training uses integer 1-5 (not actual decimal ratio).
-  // Map numNurses to this scale: low nurses = 1 (high load), many nurses = 5 (low load).
-  const nurseToPatientRatio = Math.min(5, Math.max(1, Math.ceil(numNurses / 3)))
+  // Nurse-to-Patient Ratio (integer 1-5): accounts for patient demand, not just headcount.
+  // arrivalRate/2 approximates concurrent patients needing nursing at any moment.
+  // e.g. 8 nurses, 4 pts/hr → round(8/2) = 4 (well-staffed).
+  const nurseToPatientRatio = Math.max(1, Math.min(5, Math.round(numNurses / Math.max(1, arrivalRate / 2))))
 
   // Engineered features — formulas must match feature_engineering.py exactly
   const nurseLoad        = 1 / (nurseToPatientRatio + 1)
@@ -142,10 +144,13 @@ export async function enrichPatients(patients, simConfig = {}) {
   const results = []
   for (const p of patients) {
     const feat = {
-      triageLevel: p.triageLevel,
-      numNurses:   simConfig.numNurses ?? 8,
-      hourOfDay:   (SIM_START_HOUR + Math.floor((p.arrivedAt ?? 0) / 60)) % 24,
-      dayOfWeek:   1,
+      triageLevel:     p.triageLevel,
+      numNurses:       simConfig.numNurses   ?? 8,
+      arrivalRate:     simConfig.arrivalRate ?? 4,
+      facilityBeds:    simConfig.numBeds     ?? 80,
+      specialistAvail: simConfig.numDoctors  ?? 5,
+      hourOfDay:       (SIM_START_HOUR + Math.floor((p.arrivedAt ?? 0) / 60)) % 24,
+      dayOfWeek:       1,
     }
     // All three run sequentially — v1.18 WASM backend is a singleton,
     // concurrent sess.run() calls across any sessions throw "Session already started"
