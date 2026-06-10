@@ -35,6 +35,8 @@ def ensure_bucket(base_url, key):
     if r.status_code == 200:
         print(f"Bucket '{BUCKET}' already exists")
         return
+    # Try to create — if it fails (e.g. bucket already exists but GET was denied),
+    # warn and continue; upload will fail explicitly if there's a real auth problem.
     payload = {"id": BUCKET, "name": BUCKET, "public": True}
     r = requests.post(
         f"{base_url}/storage/v1/bucket", json=payload, headers=headers
@@ -42,7 +44,7 @@ def ensure_bucket(base_url, key):
     if r.status_code in (200, 201):
         print(f"Bucket '{BUCKET}' created (public=True)")
     else:
-        raise RuntimeError(f"Failed to create bucket: {r.status_code} {r.text}")
+        print(f"Warning: could not create bucket ({r.status_code}) — assuming it already exists")
 
 
 def upload_file(base_url, key, filename):

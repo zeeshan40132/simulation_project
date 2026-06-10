@@ -107,9 +107,12 @@ export async function predictWaitTime(patientFeatures) {
   return Math.max(0, out[Object.keys(out)[0]].data[0])
 }
 
-export async function predictOutcome(patientFeatures) {
+// Outcome model uses 17 features: base 16 + Total Wait Time (min) appended.
+// waitTime is known at enrichment time (post-simulation), so this is valid post-hoc analysis.
+export async function predictOutcome(patientFeatures, waitTime = 60) {
   await ensureModelsLoaded()
-  const feat   = buildFeatureVector(patientFeatures)
+  const base   = buildFeatureVector(patientFeatures)
+  const feat   = new Float32Array([...base, waitTime])
   const out    = await runSession('outcome', feat)
   const keys   = Object.keys(out)
   // output[0] = label, output[1] = probabilities map
@@ -154,8 +157,8 @@ export async function enrichPatients(patients, simConfig = {}) {
     }
     // All three run sequentially — v1.18 WASM backend is a singleton,
     // concurrent sess.run() calls across any sessions throw "Session already started"
-    const waitTime    = await predictWaitTime(feat)
-    const outcome     = await predictOutcome(feat)
+    const waitTime     = await predictWaitTime(feat)
+    const outcome      = await predictOutcome(feat, p.waitTime ?? 60)
     const satisfaction = await predictSatisfaction(feat)
     results.push({
       ...p,
