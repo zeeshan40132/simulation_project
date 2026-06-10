@@ -95,7 +95,28 @@ export default function AnalyticsPage() {
   const allEvents = useSimulationStore((s) => s.allEvents)
   const simTime   = useSimulationStore((s) => s.getFormattedSimTime())
   const status    = useSimulationStore((s) => s.status)
+  const mlStatus  = useSimulationStore((s) => s.mlStatus)
+  const mlError   = useSimulationStore((s) => s.mlError)
   const config    = useSimulationStore((s) => s.config)
+
+  const discharged = patients.filter((p) => p.state === 'discharged' && p.waitTime != null)
+
+  // ML enriched patients (have mlWaitTime after enrichPatients runs)
+  const mlEnriched = discharged.filter((p) => p.mlWaitTime != null)
+  const mlReady    = mlEnriched.length > 0
+
+  const mlAvgWait = mlReady
+    ? mlEnriched.reduce((s, p) => s + p.mlWaitTime, 0) / mlEnriched.length
+    : null
+  const mlAvgSat  = mlReady
+    ? mlEnriched.reduce((s, p) => s + p.mlSatisfaction, 0) / mlEnriched.length
+    : null
+  const mlAdmitPct = mlReady
+    ? (mlEnriched.filter((p) => p.mlOutcome === 1).length / mlEnriched.length) * 100
+    : null
+  const simAdmitPct = discharged.length > 0
+    ? (discharged.filter((p) => p.outcome === 'admitted').length / discharged.length) * 100
+    : 0
 
   const triageData = [1, 2, 3, 4, 5].map((lvl) => ({
     name: TRIAGE_LABELS[lvl], short: TRIAGE_SHORT[lvl],
@@ -103,7 +124,6 @@ export default function AnalyticsPage() {
     fill: TRIAGE_COLORS[lvl],
   }))
 
-  const discharged = patients.filter((p) => p.state === 'discharged' && p.waitTime != null)
   const waitBuckets = [
     { range: '0–15m',   count: discharged.filter((p) => p.waitTime < 15).length },
     { range: '15–30m',  count: discharged.filter((p) => p.waitTime >= 15  && p.waitTime < 30).length },
@@ -192,6 +212,123 @@ export default function AnalyticsPage() {
             <KpiCard label="Avg Wait Time"      value={`${Math.round(stats.avgWaitTime ?? 0)}m`}   accent="#f97316"  sub="queue + triage time" />
             <KpiCard label="Doctor Utilization" value={`${utilPct}%`}                              accent="#22c55e"  sub={`${stats.inTreatment ?? 0} currently active`} />
             <KpiCard label="Avg Satisfaction"   value={(stats.avgSatisfaction ?? 0).toFixed(1)}    accent="#8b5cf6"  sub="out of 5.0" />
+          </div>
+
+          {/* ML vs Simulation Comparison */}
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: '#e2e8f0' }}>
+            <div className="flex items-center justify-between px-6 py-3 border-b"
+              style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-mono uppercase tracking-widest font-semibold"
+                  style={{ color: TEAL }}>
+                  ML Model vs Simulation
+                </span>
+                <span className="text-xs px-2 py-0.5 rounded-full font-mono"
+                  style={{ background: '#f0fdfa', color: TEAL, border: '1px solid #99f6e4' }}>
+                  XGBoost Predictions
+                </span>
+              </div>
+              <span className="text-xs font-mono" style={{ color: '#94a3b8' }}>
+                {mlStatus === 'done' ? `${mlEnriched.length} patients enriched` :
+                 mlStatus === 'error' ? 'ML failed' :
+                 mlStatus === 'loading' ? 'running ML models…' : '—'}
+              </span>
+            </div>
+            <div className="px-6 py-5" style={{ background: '#ffffff' }}>
+              {mlStatus === 'error' ? (
+                <div className="flex items-center justify-center gap-2 py-6">
+                  <span className="text-sm font-mono" style={{ color: '#ef4444' }}>
+                    ML models failed to load — {mlError ?? 'unknown error'}
+                  </span>
+                </div>
+              ) : mlStatus !== 'done' ? (
+                <div className="flex items-center justify-center gap-2 py-6">
+                  <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: TEAL }} />
+                  <span className="text-sm font-mono" style={{ color: '#94a3b8' }}>
+                    {mlStatus === 'loading' ? 'Loading ONNX models and predicting…' : 'Run a simulation to see ML predictions'}
+                  </span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                  {/* Wait Time comparison */}
+                  <div className="rounded-xl p-4 border" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
+                    <p className="text-xs font-mono uppercase tracking-wider mb-3 font-semibold"
+                      style={{ color: '#64748b' }}>Avg Wait Time</p>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs" style={{ color: '#64748b' }}>Simulation</span>
+                        <span className="text-lg font-bold font-mono" style={{ color: '#f97316' }}>
+                          {Math.round(stats.avgWaitTime ?? 0)}m
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs" style={{ color: '#64748b' }}>ML Predicted</span>
+                        <span className="text-lg font-bold font-mono" style={{ color: '#8b5cf6' }}>
+                          {Math.round(mlAvgWait)}m
+                        </span>
+                      </div>
+                      <div className="h-px mt-1" style={{ background: '#e2e8f0' }} />
+                      <p className="text-xs" style={{ color: '#94a3b8' }}>
+                        Diff: {Math.abs(Math.round(mlAvgWait) - Math.round(stats.avgWaitTime ?? 0))}m
+                        {mlAvgWait > (stats.avgWaitTime ?? 0) ? ' (ML predicts longer)' : ' (ML predicts shorter)'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Satisfaction comparison */}
+                  <div className="rounded-xl p-4 border" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
+                    <p className="text-xs font-mono uppercase tracking-wider mb-3 font-semibold"
+                      style={{ color: '#64748b' }}>Avg Satisfaction</p>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs" style={{ color: '#64748b' }}>Simulation</span>
+                        <span className="text-lg font-bold font-mono" style={{ color: '#f97316' }}>
+                          {(stats.avgSatisfaction ?? 0).toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs" style={{ color: '#64748b' }}>ML Predicted</span>
+                        <span className="text-lg font-bold font-mono" style={{ color: '#8b5cf6' }}>
+                          {mlAvgSat.toFixed(1)}
+                        </span>
+                      </div>
+                      <div className="h-px mt-1" style={{ background: '#e2e8f0' }} />
+                      <p className="text-xs" style={{ color: '#94a3b8' }}>
+                        Diff: {Math.abs(mlAvgSat - (stats.avgSatisfaction ?? 0)).toFixed(1)} pts
+                        {mlAvgSat > (stats.avgSatisfaction ?? 0) ? ' (ML predicts higher)' : ' (ML predicts lower)'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Outcome comparison */}
+                  <div className="rounded-xl p-4 border" style={{ borderColor: '#e2e8f0', background: '#f8fafc' }}>
+                    <p className="text-xs font-mono uppercase tracking-wider mb-3 font-semibold"
+                      style={{ color: '#64748b' }}>Admission Rate</p>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs" style={{ color: '#64748b' }}>Simulation</span>
+                        <span className="text-lg font-bold font-mono" style={{ color: '#f97316' }}>
+                          {Math.round(simAdmitPct)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs" style={{ color: '#64748b' }}>ML Predicted</span>
+                        <span className="text-lg font-bold font-mono" style={{ color: '#8b5cf6' }}>
+                          {Math.round(mlAdmitPct)}%
+                        </span>
+                      </div>
+                      <div className="h-px mt-1" style={{ background: '#e2e8f0' }} />
+                      <p className="text-xs" style={{ color: '#94a3b8' }}>
+                        Diff: {Math.abs(Math.round(mlAdmitPct) - Math.round(simAdmitPct))}%
+                        {mlAdmitPct > simAdmitPct ? ' (ML predicts more admissions)' : ' (ML predicts fewer admissions)'}
+                      </p>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Charts row */}

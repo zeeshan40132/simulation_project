@@ -4,6 +4,7 @@ import {
   completeSimulationRun,
   savePatientsLog,
 } from '@/lib/db'
+import { enrichPatients } from '@/lib/inference'
 
 // Default simulation config
 export const DEFAULT_CONFIG = {
@@ -27,6 +28,8 @@ const EMPTY_STATS = {
 export const useSimulationStore = create((set, get) => ({
   // ── State ──────────────────────────────────────────────────────────────────
   status:   'idle',          // 'idle' | 'running' | 'paused' | 'done'
+  mlStatus: 'idle',          // 'idle' | 'loading' | 'done' | 'error'
+  mlError:  null,
   config:   { ...DEFAULT_CONFIG },
   simTime:  0,               // current simulation clock (minutes)
   patients: [],              // array of patient objects (latest snapshot)
@@ -90,12 +93,29 @@ export const useSimulationStore = create((set, get) => ({
             ].slice(0, 20),
           }))
 
+          // Enrich discharged patients with ML predictions (non-blocking)
+          const discharged = data.patients.filter((p) => p.state === 'discharged')
+          if (discharged.length > 0) {
+            set({ mlStatus: 'loading', mlError: null })
+            enrichPatients(discharged, cfg)
+              .then((enriched) => {
+                const enrichedMap = new Map(enriched.map((p) => [p.id, p]))
+                set((s) => ({
+                  mlStatus: 'done',
+                  patients: s.patients.map((p) => enrichedMap.get(p.id) ?? p),
+                }))
+              })
+              .catch((err) => {
+                console.error('[ML] enrichPatients failed:', err)
+                set({ mlStatus: 'error', mlError: err.message })
+              })
+          }
+
           // Persist to Supabase (non-blocking)
           if (currentRunId) {
             completeSimulationRun(currentRunId, data.finalStats, durationSeconds)
               .catch((err) => console.warn('[DB] completeSimulationRun failed:', err.message))
 
-            const discharged = data.patients.filter((p) => p.state === 'discharged')
             if (discharged.length > 0) {
               savePatientsLog(currentRunId, discharged)
                 .catch((err) => console.warn('[DB] savePatientsLog failed:', err.message))
@@ -114,7 +134,8 @@ export const useSimulationStore = create((set, get) => ({
     worker.postMessage({ type: 'START', config })
 
     set({
-      status: 'running', _worker: worker, patients: [], recentEvents: [], allEvents: [],
+      status: 'running', mlStatus: 'idle', mlError: null,
+      _worker: worker, patients: [], recentEvents: [], allEvents: [],
       stats: { ...EMPTY_STATS }, simTime: 0, currentRunId: null,
       _startedAt: Date.now(),
     })
