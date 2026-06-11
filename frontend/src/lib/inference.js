@@ -73,10 +73,10 @@ export function buildFeatureVector({
 
   const isWeekend = dayOfWeek >= 6 ? 1 : 0
 
-  // Nurse-to-Patient Ratio (integer 1-5): accounts for patient demand, not just headcount.
-  // arrivalRate/2 approximates concurrent patients needing nursing at any moment.
-  // e.g. 8 nurses, 4 pts/hr → round(8/2) = 4 (well-staffed).
-  const nurseToPatientRatio = Math.max(1, Math.min(5, Math.round(numNurses / Math.max(1, arrivalRate / 2))))
+  // Nurse-to-Patient Ratio (integer 1-5): patients per nurse — lower = better staffed.
+  // Training data: ratio 1→16m wait, 2→21m, 4→107m, 5→172m.
+  // Formula: arrivalRate/numNurses * 3 gives ratio≈2 for default (8 nurses, 4/hr).
+  const nurseToPatientRatio = Math.max(1, Math.min(5, Math.round(arrivalRate / numNurses * 3)))
 
   // Engineered features — formulas must match feature_engineering.py exactly
   const nurseLoad        = 1 / (nurseToPatientRatio + 1)
